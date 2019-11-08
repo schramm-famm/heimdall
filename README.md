@@ -1,2 +1,2 @@
-# heimdall
-User authentication service
+# Heimdall
+API gateway service for Riht.
