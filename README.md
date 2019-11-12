@@ -12,7 +12,7 @@ This route handles the creation of the tokens. The request must have the header
 
 ![Typical use case for this API](https://github.com/schramm-famm/docs/blob/master/diagrams/heimdall/Token_Creation.png "Token Creation")
 
-### GET/POST/PUT /
+### GET/POST/PUT /*
 This route is hit for any request to the system that isn't `POST
 /heimdall/api/token`. It will check the `Authorization` header of the request
 for the value `Bearer <token>` where `<token>` is a valid and non-expired token
