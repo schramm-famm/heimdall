@@ -43,7 +43,9 @@ docker-run: docker 	## start the built docker image in a container
 .PHONY: clean
 clean: 				## remove tmp/ and old docker images
 	rm -rf tmp
+ifneq ("$(shell docker container list -a | grep heimdall)", "")
 	docker rm -f $(APP_NAME)
+endif
 	docker system prune
 ifneq ("$(shell docker images | grep $(APP_NAME) | awk '{ print $$3; }')", "") 
 	docker images | grep $(APP_NAME) | awk '{ print $$3; }' | xargs -I {} docker rmi {}
