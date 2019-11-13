@@ -13,6 +13,7 @@ HELP_FUNC = \
         print "\n"; \
     }
 
+.PHONY: help
 help: 				## show options and their descriptions
 	@perl -e '$(HELP_FUNC)' $(MAKEFILE_LIST)
 
@@ -26,13 +27,13 @@ rsa: 				## create tmp/ and generate RSA keys
 	openssl rsa -in ./tmp/id_rsa -pubout > ./tmp/id_rsa.pub
 
 build: rsa 			## build the app binaries
-	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix nocgo -o ./tmp ./...
+	go build -o ./tmp ./...
 
 test: build 		## build and test the module packages
-	go test ./...
+	export PRIVATE_KEY="../tmp/id_rsa" && go test ./...
 
 run: build 			## build and run the app binaries
-	./tmp/app
+	export PRIVATE_KEY="tmp/id_rsa" && ./tmp/app
 
 docker: rsa 		## build the docker image
 	docker build -t $(APP_NAME) .
