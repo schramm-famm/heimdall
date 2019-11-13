@@ -81,6 +81,12 @@ defined in `handlers.go`.
 This files contains the definitions of the `User` and `TokenClaims` structs.
 
 ### Developer Process
+The RSA private and public keys are generated whenever the app is built and is
+put into the `tmp/` folder. The path of the keys must be set as the
+`PRIVATE_KEY` environment variable which relative to where the command is being
+run. For example in the `Makefile` before the command `./tmp/app`, the
+`PRIVATE_KEY` variable is exported as `tmp/id_rsa`.
+
 When implementing features, tests should be made in parallel with the
 implementation process. Each new feature must have corresponding tests to
 validate the new functionality.
