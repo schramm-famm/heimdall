@@ -49,5 +49,5 @@ ifneq ("$(shell docker container list -a | grep heimdall)", "")
 endif
 	docker system prune
 ifneq ("$(shell docker images | grep $(APP_NAME) | awk '{ print $$3; }')", "") 
-	docker images | grep $(APP_NAME) | awk '{ print $$3; }' | xargs -I {} docker rmi {}
+	docker images | grep $(APP_NAME) | awk '{ print $$3; }' | xargs -I {} docker rmi -f {}
 endif
