@@ -9,7 +9,7 @@ import (
 )
 
 func resetVariables() {
-	karenAuth = "/karen/api/auth"
+	authRoute = "http://karen/api/auth"
 }
 
 func TestPostTokenHandler(t *testing.T) {
@@ -70,7 +70,7 @@ func TestPostTokenHandler(t *testing.T) {
 			defer server.Close()
 
 			rc = server.Client()
-			karenAuth = server.URL
+			authRoute = server.URL
 
 			rBody, _ := json.Marshal(test.ReqBody)
 			r := httptest.NewRequest("POST", "/api/token", bytes.NewReader([]byte(rBody)))

@@ -17,7 +17,7 @@ var (
 	privateKeyBytes []byte
 	publicKeyBytes  []byte
 	rc              *http.Client
-	karenAuth       = "/karen/api/auth"
+	authRoute       = "http://karen/api/auth"
 	whitelist       = []string{"/", "/login", "/register"}
 )
 
@@ -75,15 +75,15 @@ func createToken(user User) (string, error) {
 
 func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// /* Uncomment this for token generation to work w/o karen
-	resp, err := rc.Post(karenAuth, "application/json", r.Body)
+	resp, err := rc.Post(authRoute, "application/json", r.Body)
 	if err != nil {
-		log.Printf(`Failed to send request to "%s": %s\n`, karenAuth, err.Error())
+		log.Printf(`Failed to send request to "%s": %s\n`, authRoute, err.Error())
 		http.Error(w, `Failed to authorize user`, http.StatusInternalServerError)
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf(`Failed to authorize user, response code of "%s" request: %d\n`, karenAuth, resp.StatusCode)
+		log.Printf(`Failed to authorize user, response code of "%s" request: %d\n`, authRoute, resp.StatusCode)
 		http.Error(w, `Failed to authorize user`, resp.StatusCode)
 		return
 	}
@@ -92,7 +92,7 @@ func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	userBody := User{}
 	// /* Uncomment this for token generation to work w/o karen
 	if err = json.NewDecoder(resp.Body).Decode(&userBody); err != nil {
-		log.Printf(`Failed to authorize user, unable to parse response body of "%s" request: %s\n`, karenAuth, err.Error())
+		log.Printf(`Failed to authorize user, unable to parse response body of "%s" request: %s\n`, authRoute, err.Error())
 		http.Error(w, `Failed to authorize user`, http.StatusInternalServerError)
 		return
 	}
