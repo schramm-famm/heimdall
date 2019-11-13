@@ -74,6 +74,7 @@ func createToken(user User) (string, error) {
 }
 
 func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
+	// /* Uncomment this for token generation to work w/o karen
 	resp, err := rc.Post(karenAuth, "application/json", r.Body)
 	if err != nil {
 		log.Printf(`Failed to send request to "%s": %s\n`, karenAuth, err.Error())
@@ -86,13 +87,16 @@ func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `Failed to authorize user`, resp.StatusCode)
 		return
 	}
+	// */ // Uncomment this for token generation to work w/o karen
 
 	userBody := User{}
+	// /* Uncomment this for token generation to work w/o karen
 	if err = json.NewDecoder(resp.Body).Decode(&userBody); err != nil {
 		log.Printf(`Failed to authorize user, unable to parse response body of "%s" request: %s\n`, karenAuth, err.Error())
 		http.Error(w, `Failed to authorize user`, http.StatusInternalServerError)
 		return
 	}
+	// */ // Uncomment this for token generation to work w/o karen
 
 	token, err := createToken(userBody)
 	if err != nil {
