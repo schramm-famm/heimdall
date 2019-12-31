@@ -25,21 +25,25 @@ rsa: 				## create tmp/ and generate RSA keys
 	mkdir tmp
 	openssl genrsa -out ./tmp/id_rsa 2048
 	openssl rsa -in ./tmp/id_rsa -pubout > ./tmp/id_rsa.pub
+	printf '\n\n\n\n\n\n\n' | openssl req -new -x509 -sha256 -key ./tmp/id_rsa \
+		-out ./tmp/server.crt -days 3650
 
 build: rsa 			## build the app binaries
 	go build -o ./tmp ./...
 
 test: build 		## build and test the module packages
-	export PRIVATE_KEY="../tmp/id_rsa" && go test ./...
+	export PRIVATE_KEY="../tmp/id_rsa" && export SERVER_CERT="../tmp/server.crt" \
+		&& go test ./...
 
 run: build 			## build and run the app binaries
-	export PRIVATE_KEY="tmp/id_rsa" && ./tmp/app
+	export PRIVATE_KEY="tmp/id_rsa" && export SERVER_CERT="tmp/server.crt" \
+		&& ./tmp/app
 
 docker: rsa 		## build the docker image
 	docker build -t $(APP_NAME) .
 
 docker-run: docker 	## start the built docker image in a container
-	docker run -d -p 8080:8080 --name $(APP_NAME) $(APP_NAME)
+	docker run -d -p 80:80 -p 443:443 --name $(APP_NAME) $(APP_NAME)
 
 .PHONY: clean
 clean: 				## remove tmp/ and old docker images
