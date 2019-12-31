@@ -13,5 +13,6 @@ FROM scratch
 WORKDIR /
 COPY --from=builder /tmp/* ./
 ENV PRIVATE_KEY="id_rsa"
+ENV SERVER_CERT="server.crt"
 EXPOSE 8080
 ENTRYPOINT ["/app"]
