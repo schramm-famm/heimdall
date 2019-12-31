@@ -43,7 +43,7 @@ docker: rsa 		## build the docker image
 	docker build -t $(APP_NAME) .
 
 docker-run: docker 	## start the built docker image in a container
-	docker run -d -p 8080:8080 --name $(APP_NAME) $(APP_NAME)
+	docker run -d -p 80:80 -p 443:443 --name $(APP_NAME) $(APP_NAME)
 
 .PHONY: clean
 clean: 				## remove tmp/ and old docker images
