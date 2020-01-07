@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/schramm-famm/heimdall/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -44,11 +45,11 @@ func init() {
 	}
 }
 
-func createToken(user User) (string, error) {
+func createToken(user models.User) (string, error) {
 	issuedAt := time.Now()
 	expiresAt := issuedAt.Add(time.Hour * 24)
 
-	claims := &TokenClaims{
+	claims := &models.TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  issuedAt.Unix(),
 			ExpiresAt: expiresAt.Unix(),
@@ -89,7 +90,7 @@ func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// */ // Uncomment this for token generation to work w/o karen
 
-	userBody := User{}
+	userBody := models.User{}
 	// /* Uncomment this for token generation to work w/o karen
 	if err = json.NewDecoder(resp.Body).Decode(&userBody); err != nil {
 		log.Printf(`Failed to authorize user, unable to parse response body of "%s" request: %s\n`, authRoute, err.Error())
@@ -122,7 +123,7 @@ func forwardRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateToken(tokenString string) (bool, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

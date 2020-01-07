@@ -1,4 +1,4 @@
-package handlers
+package models
 
 import "github.com/dgrijalva/jwt-go"
 
