@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/schramm-famm/heimdall/models"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,7 +50,7 @@ func TestPostTokenHandler(t *testing.T) {
 			resetVariables()
 
 			mockAuthHandler := func(w http.ResponseWriter, r *http.Request) {
-				userBody := User{}
+				userBody := models.User{}
 				if err := json.NewDecoder(r.Body).Decode(&userBody); err != nil {
 					http.Error(w, "Failed to parse", http.StatusBadRequest)
 					return
@@ -98,7 +99,7 @@ func TestPostTokenHandler(t *testing.T) {
 }
 
 func TestReqHandler(t *testing.T) {
-	validToken, err := createToken(User{})
+	validToken, err := createToken(models.User{})
 	if err != nil {
 		t.Error("Failed to generate valid token: " + err.Error())
 	}
