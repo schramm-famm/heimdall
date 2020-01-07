@@ -1,4 +1,4 @@
-module heimdall
+module github.com/schramm-famm/heimdall
 
 go 1.13
 

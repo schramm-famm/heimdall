@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"github.com/gorilla/mux"
-	"heimdall/handlers"
+	"github.com/schramm-famm/heimdall/handlers"
 	"log"
 	"net/http"
 	"os"
