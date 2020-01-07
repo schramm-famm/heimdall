@@ -40,6 +40,7 @@ heimdall/
 |-- handlers/
     |-- handlers.go
     |-- handlers_test.go
+|-- models/
     |-- models.go
 ```
 
