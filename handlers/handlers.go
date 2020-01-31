@@ -6,46 +6,31 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/schramm-famm/heimdall/models"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
-var (
-	privateKeyBytes []byte
-	publicKeyBytes  []byte
-	rc              *http.Client
-	authRoute       = "http://karen/api/auth"
-	whitelist       = []string{"/", "/login", "/register"}
-)
-
-func init() {
-	rc = &http.Client{
-		Timeout: time.Second * 10,
-	}
-
-	privateKeyPath := os.Getenv("PRIVATE_KEY")
-	if privateKeyPath == "" {
-		privateKeyPath = "id_rsa"
-	}
-
-	if keyBytes, err := ioutil.ReadFile(privateKeyPath); err != nil {
-		log.Println(`Failed to read private key file: `, err)
-	} else {
-		privateKeyBytes = keyBytes
-	}
-
-	if keyBytes, err := ioutil.ReadFile(privateKeyPath + ".pub"); err != nil {
-		log.Println(`Failed to read public key file: `, err)
-	} else {
-		publicKeyBytes = keyBytes
-	}
+type Env struct {
+	RC         *http.Client
+	PrivateKey []byte
+	PublicKey  []byte
+	AppIPs     map[string]string
 }
 
-func createToken(user models.User) (string, error) {
+const (
+	authRoute = "/karen/v1/users/auth"
+)
+
+var (
+	whitelist = map[string]string{"/karen/v1/users": "POST"}
+)
+
+func (e *Env) createToken(user models.User) (string, error) {
 	issuedAt := time.Now()
 	expiresAt := issuedAt.Add(time.Hour * 24)
 
@@ -60,7 +45,7 @@ func createToken(user models.User) (string, error) {
 	claims.Name = user.Name
 	claims.Email = user.Email
 
-	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyBytes)
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(e.PrivateKey)
 	if err != nil {
 		log.Println(`Failed to parse RSA private key: `, err)
 		return "", err
@@ -74,12 +59,12 @@ func createToken(user models.User) (string, error) {
 	}
 }
 
-func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
+func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// /* Uncomment this for token generation to work w/o karen
-	resp, err := rc.Post(authRoute, "application/json", r.Body)
+	resp, err := e.RC.Post("http://"+e.AppIPs["karen"]+authRoute, "application/json", r.Body)
 	if err != nil {
 		log.Printf(`Failed to send request to "%s": %s\n`, authRoute, err.Error())
-		http.Error(w, `Failed to authorize user`, http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -94,41 +79,73 @@ func PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// /* Uncomment this for token generation to work w/o karen
 	if err = json.NewDecoder(resp.Body).Decode(&userBody); err != nil {
 		log.Printf(`Failed to authorize user, unable to parse response body of "%s" request: %s\n`, authRoute, err.Error())
-		http.Error(w, `Failed to authorize user`, http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	// */ // Uncomment this for token generation to work w/o karen
 
-	token, err := createToken(userBody)
+	token, err := e.createToken(userBody)
 	if err != nil {
 		log.Println(`Failed to create token: `, err)
-		http.Error(w, `Failed to create token for authorized user`, http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
-func forwardRequest(w http.ResponseWriter, r *http.Request) {
+func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	r.RequestURI = ""
-	if resp, err := rc.Do(r); err != nil {
+	urlString := r.URL.String()
+	re := regexp.MustCompile("[^/]+")
+
+	// Parse the URL for the service name
+	appName := re.FindString(urlString)
+	if appName == "" {
+		log.Printf("Service name not provided")
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	// Check if app IP address is alreaday cached
+	if _, ok := e.AppIPs[appName]; !ok {
+		// Get the IP address from the environment variable
+		appIP := os.Getenv(appName)
+		if appIP == "" {
+			log.Printf(`Service "%s" could not be found`, appName)
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		e.AppIPs[appName] = appIP
+	}
+
+	// Build the new URL
+	if newURL, err := url.Parse("http://" + e.AppIPs[appName] + urlString); err != nil {
+		log.Println("Failed to create new URL: ", err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	} else {
+		r.URL = newURL
+	}
+
+	if resp, err := e.RC.Do(r); err != nil {
 		log.Println("Failed to forward user request:", err)
-		http.Error(w, "Failed to forward request", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	} else if err = resp.Write(w); err != nil {
 		log.Println("Failed to write response to user:", err)
-		http.Error(w, "Failed to write response to user", http.StatusInternalServerError)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 
 	return
 }
 
-func validateToken(tokenString string) (bool, error) {
+func (e *Env) validateToken(tokenString string) (bool, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicKeyBytes)
+		publicKey, err := jwt.ParseRSAPublicKeyFromPEM(e.PublicKey)
 
 		return publicKey, err
 	})
@@ -142,7 +159,7 @@ func validateToken(tokenString string) (bool, error) {
 			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
 				return false, errors.New("token not activated yet")
 			} else {
-				fmt.Println("Couldn't handle this token:", err)
+				log.Println("Couldn't handle this token: ", err)
 				return false, fmt.Errorf("failed to handle token: %s", err.Error())
 			}
 		} else {
@@ -153,37 +170,40 @@ func validateToken(tokenString string) (bool, error) {
 	return token.Valid, nil
 }
 
-func ReqHandler(w http.ResponseWriter, r *http.Request) {
+func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if the path of the request is in the whitelist
-	for _, route := range whitelist {
-		if r.URL.Path == route {
-			forwardRequest(w, r)
+	for route, method := range whitelist {
+		if r.URL.Path == route && r.Method == method {
+			e.forwardRequest(w, r)
 			return
 		}
 	}
 
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		log.Println(`Request to protected route does not contain "Authorization" header`)
-		http.Error(w, `Request to protected route does not contain "Authorization" header`, http.StatusUnauthorized)
+		errMsg := `Request to protected route does not contain "Authorization" header`
+		log.Println(errMsg)
+		http.Error(w, errMsg, http.StatusUnauthorized)
 		return
 	}
 
 	// "Authorization" header must have format of "Bearer <token>"
 	authHeaderSlice := strings.Split(strings.Trim(authHeader, " "), " ")
 	if len(authHeaderSlice) != 2 || authHeaderSlice[0] != "Bearer" {
-		log.Println(`Request to protected route contains invalid "Authorization" header`)
-		http.Error(w, `Request to protected route contains invalid "Authorization" header`, http.StatusUnauthorized)
+		errMsg := `Request to protected route contains invalid "Authorization" header`
+		log.Println(errMsg)
+		http.Error(w, errMsg, http.StatusUnauthorized)
 		return
 	}
 
-	if valid, err := validateToken(authHeaderSlice[1]); !valid {
-		log.Println("Provided token is invalid:", err)
-		http.Error(w, "Provided token is invalid: "+err.Error(), http.StatusUnauthorized)
+	if valid, err := e.validateToken(authHeaderSlice[1]); !valid {
+		errMsg := "Token invalid"
+		log.Println(errMsg + ": " + err.Error())
+		http.Error(w, errMsg, http.StatusUnauthorized)
 		return
 	}
 
 	log.Println("Token validated!")
 
-	forwardRequest(w, r)
+	e.forwardRequest(w, r)
 }
