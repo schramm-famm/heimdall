@@ -19,7 +19,7 @@ type Env struct {
 	RC         *http.Client
 	PrivateKey []byte
 	PublicKey  []byte
-	AppIPs     map[string]string
+	Hosts      map[string]string
 }
 
 const (
@@ -61,7 +61,7 @@ func (e *Env) createToken(user models.User) (string, error) {
 
 func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// /* Uncomment this for token generation to work w/o karen
-	resp, err := e.RC.Post("http://"+e.AppIPs["karen"]+authRoute, "application/json", r.Body)
+	resp, err := e.RC.Post("http://"+e.Hosts["karen"]+authRoute, "application/json", r.Body)
 	if err != nil {
 		log.Printf(`Failed to send request to "%s": %s\n`, authRoute, err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -107,20 +107,20 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if app IP address is alreaday cached
-	if _, ok := e.AppIPs[appName]; !ok {
+	// Check if app host is already cached
+	if _, ok := e.Hosts[appName]; !ok {
 		// Get the IP address from the environment variable
-		appIP := os.Getenv(appName)
-		if appIP == "" {
+		appHost := os.Getenv(appName)
+		if appHost == "" {
 			log.Printf(`Service "%s" could not be found`, appName)
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
 		}
-		e.AppIPs[appName] = appIP
+		e.Hosts[appName] = appHost
 	}
 
 	// Build the new URL
-	if newURL, err := url.Parse("http://" + e.AppIPs[appName] + urlString); err != nil {
+	if newURL, err := url.Parse("http://" + e.Hosts[appName] + urlString); err != nil {
 		log.Println("Failed to create new URL: ", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return

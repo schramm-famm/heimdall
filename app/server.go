@@ -27,7 +27,7 @@ func main() {
 		RC: &http.Client{
 			Timeout: time.Second * 10,
 		},
-		AppIPs: make(map[string]string),
+		Hosts: make(map[string]string),
 	}
 
 	privateKeyPath := os.Getenv("PRIVATE_KEY")
@@ -49,9 +49,9 @@ func main() {
 	}
 
 	// /* Uncomment this to work w/o karen
-	e.AppIPs["karen"] = os.Getenv("KAREN_IP")
-	if e.AppIPs["karen"] == "" {
-		log.Fatal(`required "KAREN_IP" environment variable not set`)
+	e.Hosts["karen"] = os.Getenv("KAREN_HOST")
+	if e.Hosts["karen"] == "" {
+		log.Fatal(`required "KAREN_HOST" environment variable not set`)
 	}
 	// */ // Uncomment this to work w/o karen
 

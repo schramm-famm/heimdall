@@ -32,11 +32,11 @@ build: rsa 			## build the app binaries
 	go build -o ./tmp ./...
 
 test: build 		## build and test the module packages
-	export KAREN_IP="localhost" && export PRIVATE_KEY="../tmp/id_rsa" && \
+	export KAREN_HOST="localhost" && export PRIVATE_KEY="../tmp/id_rsa" && \
 		export SERVER_CERT="../tmp/server.crt" && go test ./...
 
 run: build 			## build and run the app binaries
-	export KAREN_IP="localhost" && export PRIVATE_KEY="tmp/id_rsa" && \
+	export KAREN_HOST="localhost" && export PRIVATE_KEY="tmp/id_rsa" && \
 		export SERVER_CERT="tmp/server.crt" && ./tmp/app
 
 docker: rsa 		## build the docker image

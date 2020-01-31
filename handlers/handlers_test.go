@@ -91,7 +91,7 @@ func TestPostTokenHandler(t *testing.T) {
 				PrivateKey: privateKey,
 				PublicKey:  publicKey,
 				RC:         server.Client(),
-				AppIPs:     map[string]string{"karen": strings.TrimPrefix(server.URL, "http://")},
+				Hosts:      map[string]string{"karen": strings.TrimPrefix(server.URL, "http://")},
 			}
 
 			rBody, _ := json.Marshal(test.ReqBody)
@@ -178,7 +178,7 @@ func TestReqHandler(t *testing.T) {
 
 			re := regexp.MustCompile("[^/]+")
 			appName := re.FindString(test.Path)
-			e.AppIPs = map[string]string{appName: strings.TrimPrefix(server.URL, "http://")}
+			e.Hosts = map[string]string{appName: strings.TrimPrefix(server.URL, "http://")}
 
 			r := httptest.NewRequest(test.Method, test.Path, bytes.NewReader([]byte{}))
 			r.Header = http.Header{}
