@@ -74,7 +74,7 @@ func TestPostTokenHandler(t *testing.T) {
 			authRoute = server.URL
 
 			rBody, _ := json.Marshal(test.ReqBody)
-			r := httptest.NewRequest("POST", "/api/token", bytes.NewReader([]byte(rBody)))
+			r := httptest.NewRequest("POST", "/heimdall/v1/token", bytes.NewReader([]byte(rBody)))
 			w := httptest.NewRecorder()
 
 			PostTokenHandler(w, r)

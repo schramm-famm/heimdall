@@ -31,7 +31,10 @@ func main() {
 	}
 
 	httpsMux := mux.NewRouter()
-	httpsMux.HandleFunc("/api/token", handlers.PostTokenHandler).Methods("POST")
+	httpsMux.HandleFunc(
+		"/heimdall/v1/token",
+		handlers.PostTokenHandler,
+	).Methods("POST")
 	httpsMux.PathPrefix("/").Handler(http.HandlerFunc(handlers.ReqHandler))
 
 	httpsSrv := makeServerFromMux(httpsMux)
