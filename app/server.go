@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/gorilla/mux"
 	"github.com/schramm-famm/heimdall/handlers"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +21,15 @@ func makeServerFromMux(r *mux.Router) *http.Server {
 }
 
 func main() {
+	var err error
+
+	e := &handlers.Env{
+		RC: &http.Client{
+			Timeout: time.Second * 10,
+		},
+		Hosts: make(map[string]string),
+	}
+
 	privateKeyPath := os.Getenv("PRIVATE_KEY")
 	if privateKeyPath == "" {
 		privateKeyPath = "id_rsa"
@@ -30,12 +40,27 @@ func main() {
 		certPath = "server.cert"
 	}
 
+	if e.PrivateKey, err = ioutil.ReadFile(privateKeyPath); err != nil {
+		log.Fatal(`Failed to read private key file: `, err)
+	}
+
+	if e.PublicKey, err = ioutil.ReadFile(privateKeyPath + ".pub"); err != nil {
+		log.Fatal(`Failed to read public key file: `, err)
+	}
+
+	// /* Uncomment this to work w/o karen
+	e.Hosts["karen"] = os.Getenv("KAREN_HOST")
+	if e.Hosts["karen"] == "" {
+		log.Fatal(`required "KAREN_HOST" environment variable not set`)
+	}
+	// */ // Uncomment this to work w/o karen
+
 	httpsMux := mux.NewRouter()
 	httpsMux.HandleFunc(
 		"/heimdall/v1/token",
-		handlers.PostTokenHandler,
+		e.PostTokenHandler,
 	).Methods("POST")
-	httpsMux.PathPrefix("/").Handler(http.HandlerFunc(handlers.ReqHandler))
+	httpsMux.PathPrefix("/").Handler(http.HandlerFunc(e.ReqHandler))
 
 	httpsSrv := makeServerFromMux(httpsMux)
 	httpsSrv.Addr = ":443"
@@ -52,6 +77,7 @@ func main() {
 	}
 	httpsSrv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
 
+	e.RC.Transport = &http.Transport{TLSClientConfig: httpsSrv.TLSConfig}
 	// Start HTTPS server
 	go func() {
 		log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))

@@ -4,13 +4,32 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/schramm-famm/heimdall/models"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 )
 
-func resetVariables() {
-	authRoute = "http://karen/api/auth"
+var (
+	privateKey []byte
+	publicKey  []byte
+)
+
+func init() {
+	var err error
+	privateKeyPath := os.Getenv("PRIVATE_KEY")
+
+	if privateKey, err = ioutil.ReadFile(privateKeyPath); err != nil {
+		log.Fatal(`Failed to read private key file: `, err)
+	}
+
+	if publicKey, err = ioutil.ReadFile(privateKeyPath + ".pub"); err != nil {
+		log.Fatal(`Failed to read public key file: `, err)
+	}
 }
 
 func TestPostTokenHandler(t *testing.T) {
@@ -47,8 +66,6 @@ func TestPostTokenHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			resetVariables()
-
 			mockAuthHandler := func(w http.ResponseWriter, r *http.Request) {
 				userBody := models.User{}
 				if err := json.NewDecoder(r.Body).Decode(&userBody); err != nil {
@@ -70,14 +87,18 @@ func TestPostTokenHandler(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(mockAuthHandler))
 			defer server.Close()
 
-			rc = server.Client()
-			authRoute = server.URL
+			e := &Env{
+				PrivateKey: privateKey,
+				PublicKey:  publicKey,
+				RC:         server.Client(),
+				Hosts:      map[string]string{"karen": strings.TrimPrefix(server.URL, "http://")},
+			}
 
 			rBody, _ := json.Marshal(test.ReqBody)
 			r := httptest.NewRequest("POST", "/heimdall/v1/token", bytes.NewReader([]byte(rBody)))
 			w := httptest.NewRecorder()
 
-			PostTokenHandler(w, r)
+			e.PostTokenHandler(w, r)
 
 			if w.Code != test.AuthStatusCode {
 				t.Errorf("Response has incorrect status code, expected status code %d, got %d", test.AuthStatusCode, w.Code)
@@ -99,7 +120,12 @@ func TestPostTokenHandler(t *testing.T) {
 }
 
 func TestReqHandler(t *testing.T) {
-	validToken, err := createToken(models.User{})
+	e := &Env{
+		PrivateKey: privateKey,
+		PublicKey:  publicKey,
+	}
+
+	validToken, err := e.createToken(models.User{})
 	if err != nil {
 		t.Error("Failed to generate valid token: " + err.Error())
 	}
@@ -109,28 +135,33 @@ func TestReqHandler(t *testing.T) {
 		StatusCode int
 		Header     map[string]string
 		Path       string
+		Method     string
 	}{
 		{
 			Name:       "Successful route validation",
 			StatusCode: http.StatusOK,
 			Header:     map[string]string{"Authorization": "Bearer " + validToken},
 			Path:       "/karen",
+			Method:     http.MethodGet,
 		},
 		{
 			Name:       "Successful access to whitelisted route",
 			StatusCode: http.StatusOK,
-			Path:       "/login",
+			Path:       "/karen/v1/users",
+			Method:     http.MethodPost,
 		},
 		{
 			Name:       "Unsuccessful route validation without Authorization header",
 			StatusCode: http.StatusUnauthorized,
 			Path:       "/karen",
+			Method:     http.MethodPost,
 		},
 		{
 			Name:       "Unsuccessful route validation with invalid token",
 			StatusCode: http.StatusUnauthorized,
 			Header:     map[string]string{"Authorization": "Bearer invalid"},
 			Path:       "/karen",
+			Method:     http.MethodPost,
 		},
 	}
 
@@ -143,16 +174,20 @@ func TestReqHandler(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(mockHandler))
 			defer server.Close()
 
-			rc = server.Client()
+			e.RC = server.Client()
 
-			r := httptest.NewRequest("GET", server.URL+test.Path, bytes.NewReader([]byte{}))
+			re := regexp.MustCompile("[^/]+")
+			appName := re.FindString(test.Path)
+			e.Hosts = map[string]string{appName: strings.TrimPrefix(server.URL, "http://")}
+
+			r := httptest.NewRequest(test.Method, test.Path, bytes.NewReader([]byte{}))
 			r.Header = http.Header{}
 			for key, val := range test.Header {
 				r.Header.Set(key, val)
 			}
 			w := httptest.NewRecorder()
 
-			ReqHandler(w, r)
+			e.ReqHandler(w, r)
 
 			if w.Code != test.StatusCode {
 				t.Errorf("Response has incorrect status code, expected status code %d, got %d", test.StatusCode, w.Code)
