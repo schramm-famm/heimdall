@@ -20,6 +20,24 @@ func makeServerFromMux(r *mux.Router) *http.Server {
 	}
 }
 
+func logging(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("path: %s, method: %s", r.URL.Path, r.Method)
+		f(w, r)
+	}
+}
+
+func strictTransportSecurity(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Force all future requests to use HTTPS
+		w.Header().Set(
+			"Strict-Transport-Security",
+			"max-age=63072000; includeSubDomains; preload",
+		)
+		f(w, r)
+	}
+}
+
 func main() {
 	var err error
 
@@ -58,9 +76,11 @@ func main() {
 	httpsMux := mux.NewRouter()
 	httpsMux.HandleFunc(
 		"/heimdall/v1/token",
-		e.PostTokenHandler,
+		logging(strictTransportSecurity(e.PostTokenHandler)),
 	).Methods("POST")
-	httpsMux.PathPrefix("/").Handler(http.HandlerFunc(e.ReqHandler))
+	httpsMux.PathPrefix("/").Handler(
+		logging(strictTransportSecurity(e.ReqHandler)),
+	)
 
 	httpsSrv := makeServerFromMux(httpsMux)
 	httpsSrv.Addr = ":443"
@@ -78,20 +98,7 @@ func main() {
 	httpsSrv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
 
 	e.RC.Transport = &http.Transport{TLSClientConfig: httpsSrv.TLSConfig}
+
 	// Start HTTPS server
-	go func() {
-		log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))
-	}()
-
-	// Start HTTP server that wil redirect to the HTTPS server
-	httpMux := mux.NewRouter()
-	httpMux.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		newURI := "https://" + r.Host + r.URL.String()
-		http.Redirect(w, r, newURI, http.StatusFound)
-	}))
-
-	httpSrv := makeServerFromMux(httpMux)
-	httpSrv.Addr = ":80"
-
-	log.Fatal(httpSrv.ListenAndServe())
+	log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))
 }
