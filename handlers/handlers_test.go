@@ -78,7 +78,7 @@ func TestPostTokenHandler(t *testing.T) {
 					return
 				}
 
-				userBody.ID = "fake-id"
+				userBody.ID = 1
 				userBody.Name = "Fake Name"
 
 				json.NewEncoder(w).Encode(userBody)

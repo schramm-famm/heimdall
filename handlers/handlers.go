@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -91,6 +92,7 @@ func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
@@ -110,7 +112,10 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	// Check if app host is already cached
 	if _, ok := e.Hosts[appName]; !ok {
 		// Get the IP address from the environment variable
-		appHost := os.Getenv(appName)
+		re = regexp.MustCompile(`\W`)
+		// The environment variables are the app names capitalized + _HOST
+		envVar := strings.ToUpper(re.ReplaceAllString(appName, "") + "_HOST")
+		appHost := os.Getenv(envVar)
 		if appHost == "" {
 			log.Printf(`Service "%s" could not be found`, appName)
 			http.Error(w, "Not Found", http.StatusNotFound)
@@ -139,35 +144,40 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (e *Env) validateToken(tokenString string) (bool, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
+func (e *Env) validateToken(tokenString string) (*models.TokenClaims, error) {
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&models.TokenClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 
-		publicKey, err := jwt.ParseRSAPublicKeyFromPEM(e.PublicKey)
+			publicKey, err := jwt.ParseRSAPublicKeyFromPEM(e.PublicKey)
 
-		return publicKey, err
-	})
+			return publicKey, err
+		},
+	)
 
 	if err != nil {
 		if ve, ok := err.(*jwt.ValidationError); ok {
 			if ve.Errors&jwt.ValidationErrorMalformed != 0 {
-				return false, errors.New("malformed token")
+				return nil, errors.New("malformed token")
 			} else if ve.Errors&(jwt.ValidationErrorExpired) != 0 {
-				return false, errors.New("expired token")
+				return nil, errors.New("expired token")
 			} else if ve.Errors&jwt.ValidationErrorNotValidYet != 0 {
-				return false, errors.New("token not activated yet")
+				return nil, errors.New("token not activated yet")
 			} else {
 				log.Println("Couldn't handle this token: ", err)
-				return false, fmt.Errorf("failed to handle token: %s", err.Error())
+				return nil, fmt.Errorf("failed to handle token: %s", err.Error())
 			}
 		} else {
-			return false, fmt.Errorf("failed to handle this token: %s", err)
+			return nil, fmt.Errorf("failed to handle this token: %s", err)
 		}
 	}
 
-	return token.Valid, nil
+	claims := token.Claims.(*models.TokenClaims)
+	return claims, nil
 }
 
 func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
@@ -196,14 +206,14 @@ func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if valid, err := e.validateToken(authHeaderSlice[1]); !valid {
+	claims, err := e.validateToken(authHeaderSlice[1])
+	if err != nil {
 		errMsg := "Token invalid"
 		log.Println(errMsg + ": " + err.Error())
 		http.Error(w, errMsg, http.StatusUnauthorized)
 		return
 	}
 
-	log.Println("Token validated!")
-
+	r.Header.Add("User-ID", strconv.Itoa(claims.ID))
 	e.forwardRequest(w, r)
 }
