@@ -18,8 +18,3 @@ variable "region" {
   description = "AWS region to deploy where resources will be deployed"
   default     = "us-east-2"
 }
-
-variable "key_name" {
-  type        = string
-  description = "AWS key pair name for SSH access to EC2 instances"
-}

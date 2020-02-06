@@ -16,18 +16,8 @@ resource "aws_ecs_task_definition" "heimdall" {
     "essential": true,
     "portMappings": [
       {
-        "containerPort": 8080,
-        "hostPort": 8080,
-        "protocol": "tcp"
-      },
-      {
         "containerPort": 443,
         "hostPort": 443,
-        "protocol": "tcp"
-      },
-      {
-        "containerPort": 80,
-        "hostPort": 80,
         "protocol": "tcp"
       }
     ]

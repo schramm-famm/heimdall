@@ -48,6 +48,12 @@ heimdall/
     |-- handlers_test.go
 |-- models/
     |-- models.go
+|-- terraform/
+    |-- main.tf
+    |-- variables.tf
+    |-- modules/
+        |-- main.tf
+        |-- variables.tf
 ```
 
 #### Dockerfile
@@ -86,6 +92,22 @@ defined in `handlers.go`.
 
 #### models.go
 This files contains the definitions of the `User` and `TokenClaims` structs.
+
+### Terraform
+To deploy `heimdall` and its direct dependencies in AWS, use `terraform`:
+1. Change directories to the `terraform/` directory.
+2. Create a file in the `terraform/` directory called `terraform.tfvars` and fill it out like this:
+```
+name = "WHATEVER_UNIQUE_NAME_YOU_WANT"
+access_key = "YOUR_AWS_ACCESS_KEY_ID"
+secret_key = "YOUR_AWS_SECRET_ACCESS_KEY"
+```
+3. Run `terraform init` to initialize the Terraform working directory.
+4. Run `terraform plan` to see what resources will be created and then `terraform apply` to create the resources. Enter
+`yes` when prompted by Terraform.
+5. Once the previous command is done running, the AWS resources should now be visible in the AWS console (UI) and ready
+to be used for development/testing. Once you're done using the resources, run `terraform destroy`. Enter `yes` when
+prompted by Terraform.
 
 ### Developer Process
 The RSA private and public keys are generated whenever the app is built and is
