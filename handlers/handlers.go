@@ -206,14 +206,14 @@ func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims, err := e.validateToken(authHeaderSlice[1]); err != nil {
+	claims, err := e.validateToken(authHeaderSlice[1])
+	if err != nil {
 		errMsg := "Token invalid"
 		log.Println(errMsg + ": " + err.Error())
 		http.Error(w, errMsg, http.StatusUnauthorized)
 		return
-	} else {
-		r.Header.Add("User-ID", strconv.Itoa(claims.ID))
 	}
 
+	r.Header.Add("User-ID", strconv.Itoa(claims.ID))
 	e.forwardRequest(w, r)
 }

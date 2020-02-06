@@ -11,31 +11,22 @@ import (
 	"time"
 )
 
-func makeServerFromMux(r *mux.Router) *http.Server {
-	return &http.Server{
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		Handler:      r,
-	}
-}
-
-func logging(f http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func logging(f http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("path: %s, method: %s", r.URL.Path, r.Method)
-		f(w, r)
-	}
+		f.ServeHTTP(w, r)
+	})
 }
 
-func strictTransportSecurity(f http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func strictTransportSecurity(f http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Force all future requests to use HTTPS
 		w.Header().Set(
 			"Strict-Transport-Security",
 			"max-age=63072000; includeSubDomains; preload",
 		)
-		f(w, r)
-	}
+		f.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -74,28 +65,29 @@ func main() {
 	// */ // Uncomment this to work w/o karen
 
 	httpsMux := mux.NewRouter()
-	httpsMux.HandleFunc(
-		"/heimdall/v1/token",
-		logging(strictTransportSecurity(e.PostTokenHandler)),
-	).Methods("POST")
-	httpsMux.PathPrefix("/").Handler(
-		logging(strictTransportSecurity(e.ReqHandler)),
-	)
+	httpsMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
+	httpsMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
+	httpsMux.Use(logging, strictTransportSecurity)
 
-	httpsSrv := makeServerFromMux(httpsMux)
-	httpsSrv.Addr = ":443"
-	httpsSrv.TLSConfig = &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	httpsSrv := &http.Server{
+		Addr:         ":443",
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		Handler:      httpsMux,
+		TLSConfig: &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			PreferServerCipherSuites: true,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			},
 		},
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
-	httpsSrv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0)
 
 	e.RC.Transport = &http.Transport{TLSClientConfig: httpsSrv.TLSConfig}
 
