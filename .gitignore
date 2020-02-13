@@ -14,3 +14,8 @@
 
 # Output of the makefile
 **/tmp
+
+*.tfvars
+*.tfstate
+*.tfstate.backup
+*.terraform

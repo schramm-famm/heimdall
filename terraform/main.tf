@@ -12,7 +12,7 @@ module "ecs_base" {
 module "ecs_cluster" {
   source                  = "github.com/schramm-famm/bespin//modules/ecs_cluster"
   name                    = var.name
-  security_group_id       = module.ecs_base.vpc_default_security_group_id
+  security_group_ids      = [module.ecs_base.vpc_default_security_group_id]
   subnets                 = module.ecs_base.vpc_public_subnets
   ec2_instance_profile_id = module.ecs_base.ecs_instance_profile_id
 }
