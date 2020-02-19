@@ -1,4 +1,5 @@
 APP_NAME=heimdall
+PATCHES_PORT?=8081
 HELP_FUNC = \
     %help; \
     while(<>) { \
@@ -36,8 +37,8 @@ test: build 		## build and test the module packages
 		export SERVER_CERT="../tmp/server.crt" && go test ./...
 
 run: build 			## build and run the app binaries
-	export KAREN_HOST="localhost" && export PRIVATE_KEY="tmp/id_rsa" && \
-		export SERVER_CERT="tmp/server.crt" && ./tmp/app
+	export KAREN_HOST="localhost" && export PATCHES_HOST="localhost:$(PATCHES_PORT)" && \
+	    export PRIVATE_KEY="tmp/id_rsa" && export SERVER_CERT="tmp/server.crt" && ./tmp/app
 
 docker: rsa 		## build the docker image
 	docker build -t $(APP_NAME) .
@@ -52,6 +53,6 @@ ifneq ("$(shell docker container list -a | grep heimdall)", "")
 	docker rm -f $(APP_NAME)
 endif
 	docker system prune
-ifneq ("$(shell docker images | grep $(APP_NAME) | awk '{ print $$3; }')", "") 
+ifneq ("$(shell docker images | grep $(APP_NAME) | awk '{ print $$3; }')", "")
 	docker images | grep $(APP_NAME) | awk '{ print $$3; }' | xargs -I {} docker rmi -f {}
 endif
