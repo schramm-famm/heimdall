@@ -13,3 +13,7 @@ type TokenClaims struct {
 	User
 	jwt.StandardClaims
 }
+
+type AuthBody struct {
+	Token string `json:"token"`
+}

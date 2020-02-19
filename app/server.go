@@ -75,6 +75,7 @@ func main() {
 
 	httpsMux := mux.NewRouter()
 	httpsMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
+	httpsMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
 
 	e.Hosts["patches"] = os.Getenv("PATCHES_HOST")
 	if e.Hosts["patches"] != "" {
