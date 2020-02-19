@@ -122,7 +122,7 @@ func (e *Env) PostTokenAuthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"user_id": strconv.Itoa(claims.ID)})
+	json.NewEncoder(w).Encode(map[string]int{"user_id": claims.ID})
 }
 
 func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {

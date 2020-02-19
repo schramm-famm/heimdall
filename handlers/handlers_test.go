@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/schramm-famm/heimdall/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/schramm-famm/heimdall/models"
 )
 
 var (
@@ -113,6 +114,74 @@ func TestPostTokenHandler(t *testing.T) {
 
 				if tokenBody.Token == "" {
 					t.Error("Token creation failed, expected token to not be empty")
+				}
+			}
+		})
+	}
+}
+
+func TestTokenAuthHandler(t *testing.T) {
+	type responseBody struct {
+		UserID int `json:"user_id"`
+	}
+
+	e := &Env{
+		PrivateKey: privateKey,
+		PublicKey:  publicKey,
+	}
+
+	userID := 1337
+	validToken, err := e.createToken(models.User{
+		ID: userID,
+	})
+	if err != nil {
+		t.Error("Failed to generate valid token: " + err.Error())
+	}
+
+	tests := []struct {
+		Name       string
+		StatusCode int
+		ReqBody    interface{}
+	}{
+		{
+			Name:       "Successful token validation",
+			StatusCode: http.StatusOK,
+			ReqBody: map[string]interface{}{
+				"token": validToken,
+			},
+		},
+		{
+			Name:       "Failed token validation (malformed token)",
+			StatusCode: http.StatusNotFound,
+			ReqBody: map[string]interface{}{
+				"token": "foobar",
+			},
+		},
+		{
+			Name:       "Failed token validation (empty json)",
+			StatusCode: http.StatusBadRequest,
+			ReqBody:    map[string]interface{}{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			rBody, _ := json.Marshal(test.ReqBody)
+			r := httptest.NewRequest("POST", "/heimdall/v1/token/auth", bytes.NewReader([]byte(rBody)))
+			w := httptest.NewRecorder()
+
+			e.PostTokenAuthHandler(w, r)
+
+			if w.Code != test.StatusCode {
+				t.Errorf("Response has incorrect status code, expected status code %d, got %d", test.StatusCode, w.Code)
+			}
+
+			if w.Code == http.StatusOK {
+				// Validate HTTP response content
+				resBody := responseBody{}
+				_ = json.NewDecoder(w.Body).Decode(&resBody)
+				if userID != resBody.UserID {
+					t.Errorf("Response body has incorrect user ID, expected %d, got %d", userID, resBody.UserID)
 				}
 			}
 		})
