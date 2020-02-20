@@ -130,6 +130,7 @@ func main() {
 	// Create and start internal HTTP server
 	httpMux := mux.NewRouter()
 	httpMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
+	httpMux.Use(logging)
 	httpSrv := makeServerFromMux(httpMux)
 	httpSrv.Addr = ":80"
 	log.Fatal(httpSrv.ListenAndServe())
