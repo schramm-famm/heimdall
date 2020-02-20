@@ -2,13 +2,16 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/gorilla/mux"
-	"github.com/schramm-famm/heimdall/handlers"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/schramm-famm/heimdall/handlers"
 )
 
 func logging(f http.Handler) http.Handler {
@@ -27,6 +30,12 @@ func strictTransportSecurity(f http.Handler) http.Handler {
 		)
 		f.ServeHTTP(w, r)
 	})
+}
+
+func reverseProxyHandler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r)
+	}
 }
 
 func main() {
@@ -66,6 +75,20 @@ func main() {
 
 	httpsMux := mux.NewRouter()
 	httpsMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
+	httpsMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
+
+	e.Hosts["patches"] = os.Getenv("PATCHES_HOST")
+	if e.Hosts["patches"] != "" {
+		target := "http://" + e.Hosts["patches"]
+		remote, err := url.Parse(target)
+		if err != nil {
+			log.Fatal(`Not able to parse "PATCHES_HOST" environment variable as URL: `, err)
+		}
+
+		proxy := httputil.NewSingleHostReverseProxy(remote)
+		httpsMux.HandleFunc("/patches/v1/connect/{conversation_id:[0-9]+}", reverseProxyHandler(proxy))
+	}
+
 	httpsMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
 	httpsMux.Use(logging, strictTransportSecurity)
 

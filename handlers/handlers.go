@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/schramm-famm/heimdall/models"
 	"log"
 	"net/http"
 	"net/url"
@@ -14,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/schramm-famm/heimdall/models"
 )
 
 type Env struct {
@@ -94,6 +95,34 @@ func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+func (e *Env) PostTokenAuthHandler(w http.ResponseWriter, r *http.Request) {
+	tokenBody := models.AuthBody{}
+	if err := json.NewDecoder(r.Body).Decode(&tokenBody); err != nil {
+		errMsg := "Failed to read/parse request body"
+		log.Println(errMsg, err.Error())
+		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	if tokenBody.Token == "" {
+		errMsg := `Request body has missing/empty "token" field`
+		log.Println(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	claims, err := e.validateToken(tokenBody.Token)
+	if err != nil {
+		errMsg := "Token invalid"
+		log.Println(errMsg + ": " + err.Error())
+		http.Error(w, errMsg, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"user_id": claims.ID})
 }
 
 func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
