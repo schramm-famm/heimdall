@@ -38,6 +38,15 @@ func reverseProxyHandler(p *httputil.ReverseProxy) func(http.ResponseWriter, *ht
 	}
 }
 
+func makeServerFromMux(r *mux.Router) *http.Server {
+	return &http.Server{
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		Handler:      r,
+	}
+}
+
 func main() {
 	var err error
 
@@ -75,7 +84,6 @@ func main() {
 
 	httpsMux := mux.NewRouter()
 	httpsMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
-	httpsMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
 
 	e.Hosts["patches"] = os.Getenv("PATCHES_HOST")
 	if e.Hosts["patches"] != "" {
@@ -115,5 +123,14 @@ func main() {
 	e.RC.Transport = &http.Transport{TLSClientConfig: httpsSrv.TLSConfig}
 
 	// Start HTTPS server
-	log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))
+	go func() {
+		log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))
+	}()
+
+	// Create and start internal HTTP server
+	httpMux := mux.NewRouter()
+	httpMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
+	httpSrv := makeServerFromMux(httpMux)
+	httpSrv.Addr = ":80"
+	log.Fatal(httpSrv.ListenAndServe())
 }
