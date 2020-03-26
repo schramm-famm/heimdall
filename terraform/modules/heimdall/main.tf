@@ -14,10 +14,16 @@ resource "aws_ecs_task_definition" "heimdall" {
     "cpu": 10,
     "memory": 128,
     "essential": true,
+    "environment": [
+      {
+        "name": "PRIVATE_KEY",
+        "value": "${var.private_key}"
+      }
+    ],
     "portMappings": [
       {
-        "containerPort": 443,
-        "hostPort": 443,
+        "containerPort": 80,
+        "hostPort": 80,
         "protocol": "tcp"
       }
     ]
@@ -27,8 +33,8 @@ EOF
 }
 
 resource "aws_ecs_service" "heimdall" {
-  name = "${var.name}_heimdall"
-  cluster = var.cluster_id
+  name            = "${var.name}_heimdall"
+  cluster         = var.cluster_id
   task_definition = aws_ecs_task_definition.heimdall.arn
 
   desired_count = 1

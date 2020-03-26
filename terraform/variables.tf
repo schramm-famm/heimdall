@@ -18,3 +18,9 @@ variable "region" {
   description = "AWS region to deploy where resources will be deployed"
   default     = "us-east-2"
 }
+
+variable "container_tag" {
+  type        = string
+  description = "Tag of the heimdall container in the registry to be used"
+  default     = "latest"
+}

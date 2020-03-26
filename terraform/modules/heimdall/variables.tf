@@ -13,3 +13,9 @@ variable "cluster_id" {
   type        = string
   description = "ID of the ECS cluster that the heimdall service will run in"
 }
+
+variable "private_key" {
+  type        = string
+  description = "Path to the private RSA key"
+  default     = "id_rsa"
+}
