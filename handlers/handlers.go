@@ -177,6 +177,7 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Failed to forward user request:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
 	// Copy headers from response and add CORS header
