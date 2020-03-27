@@ -101,6 +101,6 @@ func main() {
 	).Methods("POST")
 
 	internalSrv := makeServerFromMux(internalMux)
-	internalSrv.Addr = ":88"
+	internalSrv.Addr = ":8080"
 	log.Fatal(internalSrv.ListenAndServe())
 }

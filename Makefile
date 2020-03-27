@@ -50,7 +50,7 @@ docker: rsa			## build the docker image
 	docker build -t $(REGISTRY)/$(APP_NAME):$(TAG) .
 
 docker-run: docker 	## start the built docker image in a container
-	docker run -d -p 80:80 -p 88:88 -e KAREN_HOST=$(KAREN_HOST) \
+	docker run -d -p 80:80 -p 8080:8080 -e KAREN_HOST=$(KAREN_HOST) \
 		-e PATCHES_HOST=$(PATCHES_HOST) -e PRIVATE_KEY="id_rsa" \
 		--name $(APP_NAME) $(REGISTRY)/$(APP_NAME):$(TAG)
 
