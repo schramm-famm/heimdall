@@ -215,7 +215,7 @@ func TestReqHandler(t *testing.T) {
 		},
 		{
 			Name:       "Successful access to whitelisted route",
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Path:       "/karen/v1/users",
 			Method:     http.MethodPost,
 		},
@@ -237,7 +237,7 @@ func TestReqHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			mockHandler := func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(test.StatusCode)
 			}
 
 			server := httptest.NewServer(http.HandlerFunc(mockHandler))

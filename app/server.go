@@ -83,6 +83,7 @@ func main() {
 		)
 	}
 
+	externalMux.PathPrefix("/").HandlerFunc(e.OptionsHandler).Methods("OPTIONS")
 	externalMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
 	externalMux.Use(logging)
 
