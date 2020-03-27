@@ -12,7 +12,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix nocgo -o /tmp ./...
 FROM scratch
 WORKDIR /
 COPY --from=builder /tmp/* ./
-ENV PRIVATE_KEY="id_rsa"
-ENV SERVER_CERT="server.crt"
-EXPOSE 80 443
+EXPOSE 80 88
 ENTRYPOINT ["/app"]

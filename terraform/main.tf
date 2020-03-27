@@ -20,6 +20,6 @@ module "ecs_cluster" {
 module "heimdall" {
   source        = "./modules/heimdall"
   name          = var.name
-  container_tag = "1.0.0"
+  container_tag = var.container_tag
   cluster_id    = module.ecs_cluster.cluster_id
 }
