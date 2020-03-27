@@ -15,8 +15,8 @@ resource "aws_security_group" "heimdall" {
   vpc_id      = module.ecs_base.vpc_id
 
   ingress {
-    from_port   = 443
-    to_port     = 443
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

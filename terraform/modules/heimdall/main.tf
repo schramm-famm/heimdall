@@ -1,6 +1,7 @@
+data "aws_region" "heimdall" {}
+
 resource "aws_cloudwatch_log_group" "heimdall" {
-  name              = "${var.name}_heimdall"
-  retention_in_days = 1
+  name = "${var.name}_heimdall"
 }
 
 resource "aws_ecs_task_definition" "heimdall" {
@@ -11,6 +12,14 @@ resource "aws_ecs_task_definition" "heimdall" {
   {
     "name": "${var.name}_heimdall",
     "image": "343660461351.dkr.ecr.us-east-2.amazonaws.com/heimdall:${var.container_tag}",
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group": "${aws_cloudwatch_log_group.heimdall.name}",
+            "awslogs-region": "${data.aws_region.heimdall.name}",
+            "awslogs-stream-prefix": "${var.name}"
+        }
+    },
     "cpu": 10,
     "memory": 128,
     "essential": true,
