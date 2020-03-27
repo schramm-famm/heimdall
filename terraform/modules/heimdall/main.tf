@@ -52,7 +52,7 @@ EOF
 
 resource "aws_lb" "heimdall-internal" {
   name               = "${var.name}-heimdall-internal"
-  internal           = false
+  internal           = true
   load_balancer_type = "network"
   subnets            = var.subnets
 }
