@@ -33,7 +33,7 @@ rsa: tmp			## generate RSA keys
 	openssl rsa -in ./tmp/id_rsa -pubout > ./tmp/id_rsa.pub
 
 cert: rsa
-	printf '\n\n\n\n\n\n\n' | openssl req -new -x509 -sha256 -key ./tmp/id_rsa \
+	printf 'CA\nOntario\nOttawa\nschramm-famm\n\n\n\n' | openssl req -new -x509 -sha256 -key ./tmp/id_rsa \
 		-out ./tmp/server.crt -days 3650
 
 build: rsa			## build the app binaries
@@ -46,7 +46,7 @@ run: build 			## build and run the app binaries
 	export KAREN_HOST=$(KAREN_HOST) && export PATCHES_HOST=$(PATCHES_HOST) \
 		&& export PRIVATE_KEY="tmp/id_rsa" && ./tmp/app
 
-docker: rsa			## build the docker image
+docker: cert		## build the docker image
 	docker build -t $(REGISTRY)/$(APP_NAME):$(TAG) .
 
 docker-run: docker 	## start the built docker image in a container
