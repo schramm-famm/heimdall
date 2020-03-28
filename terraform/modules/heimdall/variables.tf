@@ -14,11 +14,6 @@ variable "cluster_id" {
   description = "ID of the ECS cluster that the heimdall service will run in"
 }
 
-variable "security_groups" {
-  type        = list(string)
-  description = "VPC security groups for the heimdall service load balancers"
-}
-
 variable "subnets" {
   type        = list(string)
   description = "VPC subnets for the heimdall service load balancers"

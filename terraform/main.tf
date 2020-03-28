@@ -10,17 +10,10 @@ module "ecs_base" {
   enable_nat_gateway = true
 }
 
-resource "aws_security_group" "heimdall" {
-  name        = "${var.name}_allow_testing"
-  description = "Allow traffic necessary for integration testing"
+resource "aws_security_group" "backend" {
+  name        = "${var.name}_backend"
+  description = "Allow traffic for backend services"
   vpc_id      = module.ecs_base.vpc_id
-
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   ingress {
     from_port   = 80
@@ -29,25 +22,11 @@ resource "aws_security_group" "heimdall" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = -1
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_security_group" "karen" {
-  name        = "${var.name}_allow_heimdall"
-  description = "Allow traffic from heimdall"
-  vpc_id      = module.ecs_base.vpc_id
-
   ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.heimdall.id]
-    self            = true # Allow micro-services to talk to each-other
+    from_port   = 8080
+    to_port     = 8081
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -56,20 +35,12 @@ resource "aws_security_group" "karen" {
     protocol    = -1
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-module "public_ecs_cluster" {
-  source                  = "github.com/schramm-famm/bespin//modules/ecs_cluster"
-  name                    = "${var.name}-public"
-  security_group_ids      = [aws_security_group.heimdall.id]
-  subnets                 = module.ecs_base.vpc_public_subnets
-  ec2_instance_profile_id = module.ecs_base.ecs_instance_profile_id
 }
 
 module "private_ecs_cluster" {
   source                  = "github.com/schramm-famm/bespin//modules/ecs_cluster"
   name                    = "${var.name}-private"
-  security_group_ids      = [aws_security_group.karen.id]
+  security_group_ids      = [aws_security_group.backend.id]
   subnets                 = module.ecs_base.vpc_private_subnets
   ec2_instance_profile_id = module.ecs_base.ecs_instance_profile_id
 }
@@ -78,9 +49,8 @@ module "heimdall" {
   source           = "./modules/heimdall"
   name             = var.name
   container_tag    = var.heimdall_container_tag
-  cluster_id       = module.public_ecs_cluster.cluster_id
+  cluster_id       = module.private_ecs_cluster.cluster_id
   vpc_id           = module.ecs_base.vpc_id
-  security_groups  = [aws_security_group.heimdall.id]
   subnets          = module.ecs_base.vpc_public_subnets
   private_key_cert = var.private_key_cert
   cert             = var.cert
@@ -91,8 +61,9 @@ module "karen" {
   source          = "github.com/schramm-famm/karen//terraform/modules/karen"
   name            = var.name
   container_tag   = var.karen_container_tag
+  port            = 8081
   cluster_id      = module.private_ecs_cluster.cluster_id
-  security_groups = [aws_security_group.karen.id]
+  security_groups = [aws_security_group.backend.id]
   subnets         = module.ecs_base.vpc_private_subnets
   internal        = true
   db_location     = module.rds_instance.db_endpoint
