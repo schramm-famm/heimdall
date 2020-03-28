@@ -19,9 +19,15 @@ variable "region" {
   default     = "us-east-2"
 }
 
-variable "container_tag" {
+variable "heimdall_container_tag" {
   type        = string
   description = "Tag of the heimdall container in the registry to be used"
+  default     = "latest"
+}
+
+variable "karen_container_tag" {
+  type        = string
+  description = "Tag of the karen container in the registry to be used"
   default     = "latest"
 }
 
@@ -39,4 +45,14 @@ variable "private_key_cert" {
 variable "cert" {
   type        = string
   description = "Local path to the TLS certificate"
+}
+
+variable "rds_username" {
+  type        = string
+  description = "Username for the master RDS user"
+}
+
+variable "rds_password" {
+  type        = string
+  description = "Password for the master RDS user"
 }

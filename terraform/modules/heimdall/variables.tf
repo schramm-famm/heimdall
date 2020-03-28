@@ -44,3 +44,8 @@ variable "cert" {
   type        = string
   description = "Local path to the TLS certificate"
 }
+
+variable "karen_endpoint" {
+  type        = string
+  description = "Endpoint for accessing the karen service"
+}
