@@ -54,7 +54,7 @@ docker-run: docker 	## start the built docker image in a container
 		-e PATCHES_HOST=$(PATCHES_HOST) -e PRIVATE_KEY="id_rsa" \
 		--name $(APP_NAME) $(REGISTRY)/$(APP_NAME):$(TAG)
 
-docker-push: tmp docker
+docker-push: docker
 	docker push $(REGISTRY)/$(APP_NAME):$(TAG)
 
 .PHONY: clean
