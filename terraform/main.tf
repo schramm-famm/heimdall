@@ -54,7 +54,9 @@ module "heimdall" {
   subnets          = module.ecs_base.vpc_public_subnets
   private_key_cert = var.private_key_cert
   cert             = var.cert
-  karen_endpoint   = module.karen.elb_dns_name
+  endpoints = {
+    "karen" = module.karen.elb_dns_name
+  }
 }
 
 module "karen" {

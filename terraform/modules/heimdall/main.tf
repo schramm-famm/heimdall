@@ -27,11 +27,14 @@ resource "aws_ecs_task_definition" "heimdall" {
       {
         "name": "PRIVATE_KEY",
         "value": "${var.private_key_jwt}"
-      },
-      {
-        "name": "KAREN_HOST",
-        "value": "${var.karen_endpoint}"
       }
+      %{for service, endpoint in var.endpoints}
+      ,
+      {
+        "name": "${upper(service)}_HOST",
+        "value": "${endpoint}"
+      }
+      %{endfor}
     ],
     "portMappings": [
       {
