@@ -31,7 +31,7 @@ resource "aws_ecs_task_definition" "heimdall" {
       %{for service, endpoint in var.endpoints}
       ,
       {
-        "name": "${upper(service)}_HOST",
+        "name": "${replace(upper(service), "-", "_")}_HOST",
         "value": "${endpoint}"
       }
       %{endfor}
