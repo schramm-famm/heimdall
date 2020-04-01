@@ -27,11 +27,14 @@ resource "aws_ecs_task_definition" "heimdall" {
       {
         "name": "PRIVATE_KEY",
         "value": "${var.private_key_jwt}"
-      },
-      {
-        "name": "KAREN_HOST",
-        "value": "localhost:80"
       }
+      %{for service, endpoint in var.endpoints}
+      ,
+      {
+        "name": "${replace(upper(service), "-", "_")}_HOST",
+        "value": "${endpoint}"
+      }
+      %{endfor}
     ],
     "portMappings": [
       {
@@ -65,60 +68,60 @@ resource "aws_lb" "heimdall-external" {
 }
 
 resource "aws_lb_target_group" "heimdall-internal" {
-  name        = "${var.name}-heimdall-internal"
-  port        = 8080
-  protocol    = "TCP"
-  vpc_id      = "${var.vpc_id}"
+  name     = "${var.name}-heimdall-internal"
+  port     = 8080
+  protocol = "TCP"
+  vpc_id   = var.vpc_id
 
   stickiness {
-      enabled = false
-      type = "lb_cookie"
+    enabled = false
+    type    = "lb_cookie"
   }
 
-  depends_on = ["aws_lb.heimdall-internal"]
+  depends_on = [aws_lb.heimdall-internal]
 }
 
 resource "aws_lb_target_group" "heimdall-external" {
-  name        = "${var.name}-heimdall-external"
-  port        = 80
-  protocol    = "TCP"
-  vpc_id      = "${var.vpc_id}"
+  name     = "${var.name}-heimdall-external"
+  port     = 80
+  protocol = "TCP"
+  vpc_id   = var.vpc_id
 
   stickiness {
-      enabled = false
-      type = "lb_cookie"
+    enabled = false
+    type    = "lb_cookie"
   }
 
-  depends_on = ["aws_lb.heimdall-external"]
+  depends_on = [aws_lb.heimdall-external]
 }
 
 resource "aws_lb_listener" "heimdall-internal" {
-  load_balancer_arn = "${aws_lb.heimdall-internal.arn}"
+  load_balancer_arn = aws_lb.heimdall-internal.arn
   port              = "80"
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.heimdall-internal.arn}"
+    target_group_arn = aws_lb_target_group.heimdall-internal.arn
   }
 }
 
 resource "aws_iam_server_certificate" "heimdall" {
   name             = "${var.name}-heimdall"
-  certificate_body = "${file("${var.cert}")}"
-  private_key      = "${file("${var.private_key_cert}")}"
+  certificate_body = file(var.cert)
+  private_key      = file(var.private_key_cert)
 }
 
 resource "aws_lb_listener" "heimdall-external" {
-  load_balancer_arn = "${aws_lb.heimdall-external.arn}"
+  load_balancer_arn = aws_lb.heimdall-external.arn
   port              = "443"
   protocol          = "TLS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = "${aws_iam_server_certificate.heimdall.arn}"
+  certificate_arn   = aws_iam_server_certificate.heimdall.arn
 
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.heimdall-external.arn}"
+    target_group_arn = aws_lb_target_group.heimdall-external.arn
   }
 }
 
@@ -130,13 +133,13 @@ resource "aws_ecs_service" "heimdall" {
   load_balancer {
     container_name   = "${var.name}_heimdall"
     container_port   = 8080
-    target_group_arn = "${aws_lb_target_group.heimdall-internal.id}"
+    target_group_arn = aws_lb_target_group.heimdall-internal.id
   }
 
   load_balancer {
     container_name   = "${var.name}_heimdall"
     container_port   = 80
-    target_group_arn = "${aws_lb_target_group.heimdall-external.id}"
+    target_group_arn = aws_lb_target_group.heimdall-external.id
   }
 
   desired_count = 1

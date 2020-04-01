@@ -14,11 +14,6 @@ variable "cluster_id" {
   description = "ID of the ECS cluster that the heimdall service will run in"
 }
 
-variable "security_groups" {
-  type        = list(string)
-  description = "VPC security groups for the heimdall service load balancers"
-}
-
 variable "subnets" {
   type        = list(string)
   description = "VPC subnets for the heimdall service load balancers"
@@ -43,4 +38,9 @@ variable "private_key_cert" {
 variable "cert" {
   type        = string
   description = "Local path to the TLS certificate"
+}
+
+variable "endpoints" {
+  type        = map(string)
+  description = "Endpoints for accessing backend services {'service-name' = 'endpoint'}"
 }
