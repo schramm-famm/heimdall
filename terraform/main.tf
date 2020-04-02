@@ -37,23 +37,32 @@ resource "aws_security_group" "backend" {
   }
 }
 
-module "private_ecs_cluster" {
+module "backend_ecs_cluster" {
   source                  = "github.com/schramm-famm/bespin//modules/ecs_cluster"
-  name                    = "${var.name}-private"
+  name                    = "${var.name}-backend"
+  security_group_ids      = [aws_security_group.backend.id]
+  subnets                 = module.ecs_base.vpc_private_subnets
+  ec2_instance_profile_id = module.ecs_base.ecs_instance_profile_id
+}
+
+module "heimdall_ecs_cluster" {
+  source                  = "github.com/schramm-famm/bespin//modules/ecs_cluster"
+  name                    = "${var.name}-heimdall"
   security_group_ids      = [aws_security_group.backend.id]
   subnets                 = module.ecs_base.vpc_private_subnets
   ec2_instance_profile_id = module.ecs_base.ecs_instance_profile_id
 }
 
 module "heimdall" {
-  source           = "./modules/heimdall"
-  name             = var.name
-  container_tag    = var.heimdall_container_tag
-  cluster_id       = module.private_ecs_cluster.cluster_id
-  vpc_id           = module.ecs_base.vpc_id
-  subnets          = module.ecs_base.vpc_public_subnets
-  private_key_cert = var.private_key_cert
-  cert             = var.cert
+  source              = "./modules/heimdall"
+  name                = var.name
+  container_tag       = var.heimdall_container_tag
+  cluster_id          = module.heimdall_ecs_cluster.cluster_id
+  vpc_id              = module.ecs_base.vpc_id
+  external_lb_subnets = module.ecs_base.vpc_public_subnets
+  internal_lb_subnets = module.ecs_base.vpc_private_subnets
+  private_key_cert    = var.private_key_cert
+  cert                = var.cert
   endpoints = {
     "karen" = module.karen.elb_dns_name
   }
@@ -64,7 +73,7 @@ module "karen" {
   name            = var.name
   container_tag   = var.karen_container_tag
   port            = 8081
-  cluster_id      = module.private_ecs_cluster.cluster_id
+  cluster_id      = module.backend_ecs_cluster.cluster_id
   security_groups = [aws_security_group.backend.id]
   subnets         = module.ecs_base.vpc_private_subnets
   internal        = true
