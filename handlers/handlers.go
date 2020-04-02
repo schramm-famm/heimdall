@@ -100,7 +100,6 @@ func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
@@ -186,7 +185,6 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(name, value)
 		}
 	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// Copy status code and body
 	w.WriteHeader(resp.StatusCode)

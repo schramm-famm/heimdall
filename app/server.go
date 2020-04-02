@@ -13,6 +13,14 @@ import (
 	"github.com/schramm-famm/heimdall/handlers"
 )
 
+func cors(f http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set the CORS header
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		f.ServeHTTP(w, r)
+	})
+}
+
 func logging(f http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("path: %s, method: %s", r.URL.Path, r.Method)
@@ -86,6 +94,7 @@ func main() {
 	externalMux.PathPrefix("/").HandlerFunc(e.OptionsHandler).Methods("OPTIONS")
 	externalMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
 	externalMux.Use(logging)
+	externalMux.Use(cors)
 
 	externalSrv := makeServerFromMux(externalMux)
 	externalSrv.Addr = ":80"
@@ -100,6 +109,7 @@ func main() {
 		"/heimdall/v1/token/auth",
 		e.PostTokenAuthHandler,
 	).Methods("POST")
+	internalMux.Use(logging)
 
 	internalSrv := makeServerFromMux(internalMux)
 	internalSrv.Addr = ":8080"
