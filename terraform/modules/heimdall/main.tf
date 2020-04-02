@@ -57,14 +57,14 @@ resource "aws_lb" "heimdall-internal" {
   name               = "${var.name}-heimdall-internal"
   internal           = true
   load_balancer_type = "network"
-  subnets            = var.subnets
+  subnets            = var.internal_lb_subnets
 }
 
 resource "aws_lb" "heimdall-external" {
   name               = "${var.name}-heimdall-external"
   internal           = false
   load_balancer_type = "network"
-  subnets            = var.subnets
+  subnets            = var.external_lb_subnets
 }
 
 resource "aws_lb_target_group" "heimdall-internal" {

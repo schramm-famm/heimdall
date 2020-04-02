@@ -14,9 +14,14 @@ variable "cluster_id" {
   description = "ID of the ECS cluster that the heimdall service will run in"
 }
 
-variable "subnets" {
+variable "external_lb_subnets" {
   type        = list(string)
-  description = "VPC subnets for the heimdall service load balancers"
+  description = "VPC subnets for the external heimdall service load balancers"
+}
+
+variable "internal_lb_subnets" {
+  type        = list(string)
+  description = "VPC subnets for the internal heimdall service load balancers"
 }
 
 variable "vpc_id" {
