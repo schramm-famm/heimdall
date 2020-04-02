@@ -1,5 +1,8 @@
 APP_NAME=heimdall
-PATCHES_PORT?=8081
+REGISTRY?=343660461351.dkr.ecr.us-east-2.amazonaws.com
+TAG?=latest
+KAREN_HOST?=localhost:8080
+PATCHES_HOST?=localhost:8081
 HELP_FUNC = \
     %help; \
     while(<>) { \
@@ -21,30 +24,38 @@ help: 				## show options and their descriptions
 all:  				## clean the working environment, build and test the packages, and then build the docker image
 all: clean test docker
 
-rsa: 				## create tmp/ and generate RSA keys
+tmp: 				## create ./tmp
 	if [ -d "./tmp" ]; then rm -rf ./tmp; fi
 	mkdir tmp
+
+rsa: tmp			## generate RSA keys
 	openssl genrsa -out ./tmp/id_rsa 2048
 	openssl rsa -in ./tmp/id_rsa -pubout > ./tmp/id_rsa.pub
-	printf '\n\n\n\n\n\n\n' | openssl req -new -x509 -sha256 -key ./tmp/id_rsa \
+
+cert: rsa
+	printf 'CA\nOntario\nOttawa\nschramm-famm\n\n\n\n' | openssl req -new -x509 -sha256 -key ./tmp/id_rsa \
 		-out ./tmp/server.crt -days 3650
 
-build: rsa 			## build the app binaries
+build: rsa			## build the app binaries
 	go build -o ./tmp ./...
 
 test: build 		## build and test the module packages
-	export KAREN_HOST="localhost" && export PRIVATE_KEY="../tmp/id_rsa" && \
-		export SERVER_CERT="../tmp/server.crt" && go test ./...
+	export PRIVATE_KEY="../tmp/id_rsa" && go test ./...
 
 run: build 			## build and run the app binaries
-	export KAREN_HOST="localhost" && export PATCHES_HOST="localhost:$(PATCHES_PORT)" && \
-	    export PRIVATE_KEY="tmp/id_rsa" && export SERVER_CERT="tmp/server.crt" && ./tmp/app
+	export KAREN_HOST=$(KAREN_HOST) && export PATCHES_HOST=$(PATCHES_HOST) \
+		&& export PRIVATE_KEY="tmp/id_rsa" && ./tmp/app
 
-docker: rsa 		## build the docker image
-	docker build -t $(APP_NAME) .
+docker: cert		## build the docker image
+	docker build -t $(REGISTRY)/$(APP_NAME):$(TAG) .
 
 docker-run: docker 	## start the built docker image in a container
-	docker run -d -p 80:80 -p 443:443 --name $(APP_NAME) $(APP_NAME)
+	docker run -d -p 80:80 -p 8080:8080 -e KAREN_HOST=$(KAREN_HOST) \
+		-e PATCHES_HOST=$(PATCHES_HOST) -e PRIVATE_KEY="id_rsa" \
+		--name $(APP_NAME) $(REGISTRY)/$(APP_NAME):$(TAG)
+
+docker-push: docker
+	docker push $(REGISTRY)/$(APP_NAME):$(TAG)
 
 .PHONY: clean
 clean: 				## remove tmp/ and old docker images

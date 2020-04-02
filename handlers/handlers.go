@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/schramm-famm/heimdall/models"
 )
 
+// Env represents all application-level items that are needed by HTTP handlers.
 type Env struct {
 	RC         *http.Client
 	PrivateKey []byte
@@ -32,6 +34,7 @@ var (
 	whitelist = map[string]string{"/karen/v1/users": "POST"}
 )
 
+// createToken generates a token with claims based on a registered user.
 func (e *Env) createToken(user models.User) (string, error) {
 	issuedAt := time.Now()
 	expiresAt := issuedAt.Add(time.Hour * 24)
@@ -61,6 +64,9 @@ func (e *Env) createToken(user models.User) (string, error) {
 	}
 }
 
+// PostTokenHandler verifies credentials passed in an HTTP request by
+// communicating with the karen service. A token will be generated and put in
+// the response if the credentials are valid.
 func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// /* Uncomment this for token generation to work w/o karen
 	resp, err := e.RC.Post("http://"+e.Hosts["karen"]+authRoute, "application/json", r.Body)
@@ -97,6 +103,8 @@ func (e *Env) PostTokenHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
+// PostTokenAuthHandler checks whether a token sent in an HTTP request is valid
+// and responds with the encoded user ID if it is.
 func (e *Env) PostTokenAuthHandler(w http.ResponseWriter, r *http.Request) {
 	tokenBody := models.AuthBody{}
 	if err := json.NewDecoder(r.Body).Decode(&tokenBody); err != nil {
@@ -125,6 +133,8 @@ func (e *Env) PostTokenAuthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int{"user_id": claims.ID})
 }
 
+// forwardRequest forwards a client request to the service associated with the
+// request path, if there is one, and returns the response to the client.
 func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	r.RequestURI = ""
 	urlString := r.URL.String()
@@ -162,10 +172,23 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 		r.URL = newURL
 	}
 
-	if resp, err := e.RC.Do(r); err != nil {
+	resp, err := e.RC.Do(r)
+	if err != nil {
 		log.Println("Failed to forward user request:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	} else if err = resp.Write(w); err != nil {
+		return
+	}
+
+	// Copy headers from response and add CORS header
+	for name, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(name, value)
+		}
+	}
+
+	// Copy status code and body
+	w.WriteHeader(resp.StatusCode)
+	if _, err = io.Copy(w, resp.Body); err != nil {
 		log.Println("Failed to write response to user:", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
@@ -173,6 +196,8 @@ func (e *Env) forwardRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// validateToken checks whether a given token is valid and returns the encoded
+// claims if it is.
 func (e *Env) validateToken(tokenString string) (*models.TokenClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
@@ -209,6 +234,7 @@ func (e *Env) validateToken(tokenString string) (*models.TokenClaims, error) {
 	return claims, nil
 }
 
+// ReqHandler handles all HTTP requests to be forwarded.
 func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if the path of the request is in the whitelist
 	for route, method := range whitelist {
@@ -245,4 +271,14 @@ func (e *Env) ReqHandler(w http.ResponseWriter, r *http.Request) {
 
 	r.Header.Add("User-ID", strconv.Itoa(claims.ID))
 	e.forwardRequest(w, r)
+}
+
+// OptionsHandler handles pre-flight CORS HTTP requests and responds with the
+// headers needed to allow CORS for certain methods and headers and all origins.
+func (e *Env) OptionsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, PATCH, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Max-Age", "86400")
+	w.WriteHeader(http.StatusNoContent)
 }

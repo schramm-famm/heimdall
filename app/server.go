@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,20 +13,17 @@ import (
 	"github.com/schramm-famm/heimdall/handlers"
 )
 
-func logging(f http.Handler) http.Handler {
+func cors(f http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("path: %s, method: %s", r.URL.Path, r.Method)
+		// Set the CORS header
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		f.ServeHTTP(w, r)
 	})
 }
 
-func strictTransportSecurity(f http.Handler) http.Handler {
+func logging(f http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Force all future requests to use HTTPS
-		w.Header().Set(
-			"Strict-Transport-Security",
-			"max-age=63072000; includeSubDomains; preload",
-		)
+		log.Printf("path: %s, method: %s", r.URL.Path, r.Method)
 		f.ServeHTTP(w, r)
 	})
 }
@@ -62,11 +58,6 @@ func main() {
 		privateKeyPath = "id_rsa"
 	}
 
-	certPath := os.Getenv("SERVER_CERT")
-	if certPath == "" {
-		certPath = "server.cert"
-	}
-
 	if e.PrivateKey, err = ioutil.ReadFile(privateKeyPath); err != nil {
 		log.Fatal(`Failed to read private key file: `, err)
 	}
@@ -82,8 +73,8 @@ func main() {
 	}
 	// */ // Uncomment this to work w/o karen
 
-	httpsMux := mux.NewRouter()
-	httpsMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
+	externalMux := mux.NewRouter()
+	externalMux.HandleFunc("/heimdall/v1/token", e.PostTokenHandler).Methods("POST")
 
 	e.Hosts["patches"] = os.Getenv("PATCHES_HOST")
 	if e.Hosts["patches"] != "" {
@@ -94,44 +85,33 @@ func main() {
 		}
 
 		proxy := httputil.NewSingleHostReverseProxy(remote)
-		httpsMux.HandleFunc("/patches/v1/connect/{conversation_id:[0-9]+}", reverseProxyHandler(proxy))
+		externalMux.HandleFunc(
+			"/patches/v1/connect/{conversation_id:[0-9]+}",
+			reverseProxyHandler(proxy),
+		)
 	}
 
-	httpsMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
-	httpsMux.Use(logging, strictTransportSecurity)
+	externalMux.PathPrefix("/").HandlerFunc(e.OptionsHandler).Methods("OPTIONS")
+	externalMux.PathPrefix("/").HandlerFunc(e.ReqHandler)
+	externalMux.Use(logging)
+	externalMux.Use(cors)
 
-	httpsSrv := &http.Server{
-		Addr:         ":443",
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		Handler:      httpsMux,
-		TLSConfig: &tls.Config{
-			MinVersion:               tls.VersionTLS12,
-			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-			PreferServerCipherSuites: true,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			},
-		},
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
-	}
+	externalSrv := makeServerFromMux(externalMux)
+	externalSrv.Addr = ":80"
 
-	e.RC.Transport = &http.Transport{TLSClientConfig: httpsSrv.TLSConfig}
-
-	// Start HTTPS server
 	go func() {
-		log.Fatal(httpsSrv.ListenAndServeTLS(certPath, privateKeyPath))
+		log.Fatal(externalSrv.ListenAndServe())
 	}()
 
-	// Create and start internal HTTP server
-	httpMux := mux.NewRouter()
-	httpMux.HandleFunc("/heimdall/v1/token/auth", e.PostTokenAuthHandler).Methods("POST")
-	httpMux.Use(logging)
-	httpSrv := makeServerFromMux(httpMux)
-	httpSrv.Addr = ":80"
-	log.Fatal(httpSrv.ListenAndServe())
+	// Create server for handling internal requests
+	internalMux := mux.NewRouter()
+	internalMux.HandleFunc(
+		"/heimdall/v1/token/auth",
+		e.PostTokenAuthHandler,
+	).Methods("POST")
+	internalMux.Use(logging)
+
+	internalSrv := makeServerFromMux(internalMux)
+	internalSrv.Addr = ":8080"
+	log.Fatal(internalSrv.ListenAndServe())
 }
