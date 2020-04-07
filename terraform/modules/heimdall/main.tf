@@ -142,5 +142,5 @@ resource "aws_ecs_service" "heimdall" {
     target_group_arn = aws_lb_target_group.heimdall-external.id
   }
 
-  desired_count = 1
+  desired_count = var.container_count
 }

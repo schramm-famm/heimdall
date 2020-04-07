@@ -9,6 +9,12 @@ variable "container_tag" {
   default     = "latest"
 }
 
+variable "container_count" {
+  type        = number
+  description = "The number of containers to deploy in the heimdall service"
+  default     = 1
+}
+
 variable "cluster_id" {
   type        = string
   description = "ID of the ECS cluster that the heimdall service will run in"

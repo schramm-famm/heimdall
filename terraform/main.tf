@@ -57,6 +57,7 @@ module "heimdall" {
   source              = "./modules/heimdall"
   name                = var.name
   container_tag       = var.heimdall_container_tag
+  container_count     = 1
   cluster_id          = module.heimdall_ecs_cluster.cluster_id
   vpc_id              = module.ecs_base.vpc_id
   external_lb_subnets = module.ecs_base.vpc_public_subnets
@@ -73,6 +74,7 @@ module "karen" {
   name            = var.name
   container_tag   = var.karen_container_tag
   port            = 8081
+  container_count = 1
   cluster_id      = module.backend_ecs_cluster.cluster_id
   security_groups = [aws_security_group.backend.id]
   subnets         = module.ecs_base.vpc_private_subnets
